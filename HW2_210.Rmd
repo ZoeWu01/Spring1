@@ -1,0 +1,211 @@
+---
+title: "BST210 Problem Set 2"
+date: "Thursday February 22, 2024, 8am"
+output:
+  html_document:
+    df_print: paged
+---
+In this assignment, you will be analyzing data from a study of acute meningitis performed at Duke Medical
+Center, published in Spanos A, Harrell FE, Durack DT (1989): Differential diagnosis of acute meningitis:
+An analysis of the predictive value of initial observations. JAMA 262: 2700-2707. W will evaluate whether
+various demographic variables, clinical factors, and laboratory measurements can differentiate between
+acute bacterial meningitis (ABM) and acute viral meningitis (AVM). The dataset is saved as abm.csv and
+the codebook is saved as abm_codebook.csv.
+```{r}
+df<- read.csv("C:/Users/zoejn/Downloads/abm.csv")
+library(tidyverse)
+library(ggplot2)
+library(broom)
+library(lmtest)
+library(sandwich)
+
+```
+
+1. The original dataset from this study does not have the variables summer and glucose_ratio (CSF-
+blood glucose ratio). The variable summer is defined as the number of months between
+admission and the estimated peak incidence of acute viral meningitis (August). For example, if
+the infection occurred in June, summer=2. If the infection occurred in December, summer=4.
+glucose_ratio as defined in the paper is “(Cerebrospinal fluid (CSF) glucose + 0.1 mmol/L)/(blood
+glucose + 0.1 mmol/L), truncated at 0.6”. To convert glucose measures from mg/dL to mmol/L,
+divide by 18.018. Truncated at 0.6 means that we calculate the glucose ratio using that formula
+and compare to 0.6; if the value is greater than 0.6, we use 0.6, otherwise we use the calculated
+value. [5 points]
+a. Write code generating a new variable for summer using only the variable month. (Hint:
+you should validate that you have generated it correctly by comparing it with the value of
+summer in the dataset.) This is an important variable because viral meningitis is far more
+common in the summer than bacterial meningitis.
+```{r}
+#generating new variable summer by taking absolute value of August - Month
+df <- df %>%
+  mutate(newSummer = abs(8-month)) 
+
+```
+
+b. Write code generating a new variable for the glucose ratio using only the variables gl and
+bloodgl. Round glucose ratio to 3 decimal places. Hint: You should validate that you have
+created this variable correctly as well.
+```{r}
+#generating new variabe glucose ratio 
+df <- df %>% 
+  mutate (glucoseratio=(gl+0.1)/(bloodgl+0.1), 
+          #rounding to 3 decimals 
+          newgr=round(glucoseratio, digits=3))
+
+
+
+```
+
+c. Write code removing from your dataset observations that are missing summer, glucose
+ratio, age, polymorphonuclear (PMN) cells in CSF, or whether the result is ABM or not.
+You should end up with 233 observations.
+```{r}
+df<- na.omit(df)
+
+```
+
+2. Create a binary variable for whether the CSF blood glucose ratio is less than 0.5 (i.e., 1 if less
+than 0.5 and 0 if 0.5 or greater). [5 points]
+a. Generate a 2x2 table investigating this new binary exposure variable and ABM as the
+outcome. Perform a chi-square test and state the hypothesis test and the conclusion
+(with p-value).
+```{r}
+#generating new categorical variable for CSF blood glucose 
+df$bgr_cat <- ifelse (df$newgr<0.5 , 1, 0) 
+df
+#generating 2by2 table for bgr_cat vs ABM
+table(df$bgr_cat, df$abm)
+
+#chi2 test 
+chisq.test(df$bgr_cat, df$abm)
+```
+Hypothesis Test: 
+H0: The outcome acute viral meningitis is independent of obtaining a CSF blood glucose ratio <5
+HA: The outcome acute viral meningitis is dependent of obtaining a CSF blood glucose ratio <5 
+Conclusion: With a p value of 2.2e-16, we reject H0 in favor of HA. We have sufficient evidence to conclude that obtaining a CSF blood glucose ratio of <5 is associated with the outcome acute viral meningitis. 
+
+
+b. Calculate the risk difference for ABM comparing low vs. high blood glucose ratio.
+```{r}
+fit1<- glm(abm ~ bgr_cat, data=df, family = binomial(link="identity"))
+summary(fit1)
+
+```
+
+The risk difference in infection with acute viral meningitis is 0.68 comparing those with low blood glucose ratio vs. those with high blood glucose ratio. 
+
+c. Calculate the risk ratio for ABM comparing low vs. high blood glucose ratio.
+```{r}
+library(epitools)
+riskratio(table(df$bgr_cat, df$abm))
+```
+
+d. Calculate the odds ratio for ABM comparing low vs. high blood glucose ratio.
+```{r}
+oddsratio(table(df$bgr_cat, df$abm))
+```
+
+3. Fit a model for ABM to estimate the risk difference corresponding to a 10-unit increase in PMN
+cells in CSF, adjusting for summer, CSF-blood glucose ratio, and age. Include in your model a
+quadratic relationship between age and the outcome. [6 points]
+a. Calculate and interpret the estimated risk difference.
+```{r}
+
+
+```
+
+b. State your reasoning for choosing this type of regression model.
+```{r}
+
+```
+
+4. Fit a model for ABM to estimate the risk ratio corresponding to a 0.1-unit increase in CSF-blood
+glucose ratio, adjusting for summer, PMN cells in CSF, and age. Include in your model a
+quadratic relationship between age and the outcome. [6 points]
+a. Calculate and interpret the estimated risk ratio.
+```{r}
+
+```
+
+b. State your reasoning for choosing this type of regression model.
+```{r}
+
+```
+
+5. Fit a model for ABM to estimate the odds ratio with predictors PMN cells in CSF, summer, CSF-
+blood glucose ratio, and a new binary indicator variable for whether age is 18 or older, or under
+18. Include in your model an interaction between the binary age variable and PMN. [8 points]
+a. Interpret the estimated odds ratio and provide the 95% confidence interval corresponding
+to a 1-unit increase in PMN cells in CSF among those who are under 18.
+```{r}
+
+```
+
+b. Interpret the estimated odds ratio and provide the 95% confidence interval corresponding
+to a 1-unit increase in PMN cells in CSF among those who 18 or older.
+```{r}
+
+```
+
+6. From each of the models in questions 3-5, calculate the predicted probability of ABM for someone
+who has PMN cells in CSF = 50, CSF-blood glucose ratio = 0.3, age = 18, and summer = 3. [6
+points]
+```{r}
+
+```
+
+7. Fit the same model as question 5 but do not include an interaction term between the binary age
+variable and PMN cells in CSF. [6 points]
+a. Interpret the estimated odds ratio and provide the 95% confidence interval corresponding
+to a 1-unit increase in PMN cells in CSF.
+```{r}
+
+```
+
+b. Perform a likelihood ratio test comparing this model to the model in question 5 that has
+the interaction term. Interpret the test result and report the p-value.
+```{r}
+
+```
+
+8. Divide the dataset into the training set and the test set based on the variable subset. Fit the
+model specified in question #5 using only data from the training set. [5 points]
+a. Calculate the AUC and a 95% confidence interval in the training set.
+```{r}
+
+```
+
+b. Plot the ROC curve.
+```{r}
+
+```
+
+c. Does the ROC curve evaluate calibration or discrimination?
+```{r}
+
+```
+
+9. Now use the test set data. [3 points]
+a. Calculate the AUC in the test set based on the model you obtained in Question #8, along
+with a 95% confidence interval.
+```{r}
+
+```
+
+b. Is the AUC better in the test set or the training set? Would you have expected this result?
+```{r}
+
+```
+
+EXTRA CREDIT
+1. Using the full data, generate a scatter plot with PMN cells in CSF on the x-axis and predicted
+probability of ABM on the y-axis from the model in Question #5. Only include the 233
+observations identified at the end of Question #1. Use green for data points where age is less
+than 18 and orange for data points where age is 18 or older. From the model in Question #5,
+superimpose a green line corresponding to the estimated relationship from the model between
+PMN cells in CSF and the probability of ABM among those age < 18 with summer=2 and CSF
+blood glucose ratio = 0.45. Superimpose a second line in orange corresponding to the estimated
+relationship from the model between PMN cells in CSF and the probability of ABM among those 18 or older, also with summer=2 and CSF blood glucose ratio = 0.45. [5 extra credit points]
+```{r}
+
+```
+
